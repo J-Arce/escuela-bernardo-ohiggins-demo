@@ -1,0 +1,6 @@
+{
+  "name": "Escuela Bernardo O'Higgins",
+  "description": "Sitio web institucional y panel de administración de la Escuela Bernardo O'Higgins de Copiapó, Chile.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
