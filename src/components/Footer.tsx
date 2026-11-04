@@ -3,18 +3,23 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
-import { Landmark, Phone, Mail, MapPin, Award, Shield, Lock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../firebase';
+import { Phone, Mail, MapPin, Award, Shield, Lock } from 'lucide-react';
+import InlineEdit from './InlineEdit';
 
 interface FooterProps {
-  setActiveTab: (tab: string) => void;
-  setIsAdminMode: (mode: boolean) => void;
+  isAdminMode?: boolean;
+  setActiveTab?: (tab: string) => void;
+  setIsAdminMode?: (mode: boolean) => void;
   onOpenPrivacy: () => void;
   onOpenTerms: () => void;
   onOpenAdminLogin: () => void;
 }
 
 export default function Footer({ 
+  isAdminMode = false,
   setActiveTab, 
   setIsAdminMode,
   onOpenPrivacy,
@@ -23,9 +28,38 @@ export default function Footer({
 }: FooterProps) {
   const currentYear = new Date().getFullYear();
 
+  // Estados editables exclusivos del Footer
+  const [footerDir, setFooterDir] = useState("Avenida Copayapu #1230, Copiapó, Región de Atacama");
+  const [footerTel, setFooterTel] = useState("Central: +56 52 221 0844");
+  const [footerEmail, setFooterEmail] = useState("contacto@escuelabernardoohiggins.cl");
+
+  // Cargar datos de contacto del Footer desde Firebase
+  useEffect(() => {
+    const fetchFooterContact = async () => {
+      try {
+        const docRef = doc(db, "paginas", "footer");
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.direccion) setFooterDir(data.direccion);
+          if (data.telefono) setFooterTel(data.telefono);
+          if (data.email) setFooterEmail(data.email);
+        }
+      } catch (error) { console.error(error); }
+    };
+    fetchFooterContact();
+  }, []);
+
+  const saveToFirebase = async (campo: string, valor: string) => {
+    try {
+      await setDoc(doc(db, "paginas", "footer"), { [campo]: valor }, { merge: true });
+    } catch (error) { console.error(error); }
+  };
+
+  // Función de navegación corregida (Ya no cierra la sesión)
   const handleLinkClick = (tabId: string) => {
-    setActiveTab(tabId);
-    setIsAdminMode(false);
+    if (setActiveTab) setActiveTab(tabId);
+    // Nota: Eliminamos la línea que cerraba sesión accidentalmente
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -36,18 +70,18 @@ export default function Footer({
         {/* Column 1: School Identity */}
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-white rounded-full flex items-center justify-center text-[#05087E] border border-[#FF030D] overflow-hidden p-0.5">
+            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center border-2 border-blue-100 overflow-hidden shrink-0">
               <img 
-                src="assets/logo-footer.png" 
-                alt="Logo Bernardo O'Higgins" 
-                className="w-full h-full object-contain"
+                src="/insignia.png" 
+                alt="Logo Escuela Bernardo O'Higgins" 
+                className="w-10 h-10 object-contain"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                   const parent = e.currentTarget.parentElement;
                   if (parent) {
                     const fallback = document.createElement('span');
                     fallback.innerText = '🏫';
-                    fallback.className = 'text-xs font-bold text-[#05087E]';
+                    fallback.className = 'text-xl';
                     parent.appendChild(fallback);
                   }
                 }}
@@ -55,7 +89,7 @@ export default function Footer({
             </div>
             <div>
               <h2 className="text-base font-display font-bold leading-tight">
-                Escuela Bernardo O'Higgins
+                Escuela Bernardo<br />O'Higgins
               </h2>
               <p className="text-[10px] text-gray-300 tracking-wider">Copiapó, Chile</p>
             </div>
@@ -75,65 +109,39 @@ export default function Footer({
             Mapa del Sitio
           </h3>
           <ul className="grid grid-cols-2 gap-2 text-xs text-gray-300">
-            <li>
-              <button onClick={() => handleLinkClick('inicio')} className="hover:text-red-400 transition-colors cursor-pointer text-left">
-                Inicio
-              </button>
-            </li>
-            <li>
-              <button onClick={() => handleLinkClick('nosotros')} className="hover:text-red-400 transition-colors cursor-pointer text-left">
-                Nosotros
-              </button>
-            </li>
-            <li>
-              <button onClick={() => handleLinkClick('academica')} className="hover:text-red-400 transition-colors cursor-pointer text-left">
-                Académico
-              </button>
-            </li>
-            <li>
-              <button onClick={() => handleLinkClick('convivencia')} className="hover:text-red-400 transition-colors cursor-pointer text-left">
-                Convivencia
-              </button>
-            </li>
-            <li>
-              <button onClick={() => handleLinkClick('vida-estudiantil')} className="hover:text-red-400 transition-colors cursor-pointer text-left">
-                Vida Estudiantil
-              </button>
-            </li>
-            <li>
-              <button onClick={() => handleLinkClick('admision')} className="hover:text-red-400 transition-colors cursor-pointer text-left">
-                Admisión
-              </button>
-            </li>
-            <li>
-              <button onClick={() => handleLinkClick('noticias')} className="hover:text-red-400 transition-colors cursor-pointer text-left">
-                Noticias
-              </button>
-            </li>
-            <li>
-              <button onClick={() => handleLinkClick('contacto')} className="hover:text-red-400 transition-colors cursor-pointer text-left">
-                Contacto
-              </button>
-            </li>
+            <li><button onClick={() => handleLinkClick('inicio')} className="hover:text-red-400 transition-colors cursor-pointer text-left">Inicio</button></li>
+            <li><button onClick={() => handleLinkClick('nosotros')} className="hover:text-red-400 transition-colors cursor-pointer text-left">Nosotros</button></li>
+            <li><button onClick={() => handleLinkClick('area-academica')} className="hover:text-red-400 transition-colors cursor-pointer text-left">Académico</button></li>
+            <li><button onClick={() => handleLinkClick('convivencia-escolar')} className="hover:text-red-400 transition-colors cursor-pointer text-left">Convivencia</button></li>
+            <li><button onClick={() => handleLinkClick('vida-estudiantil')} className="hover:text-red-400 transition-colors cursor-pointer text-left">Vida Estudiantil</button></li>
+            <li><button onClick={() => handleLinkClick('admision')} className="hover:text-red-400 transition-colors cursor-pointer text-left">Admisión</button></li>
+            <li><button onClick={() => handleLinkClick('noticias')} className="hover:text-red-400 transition-colors cursor-pointer text-left">Noticias</button></li>
+            <li><button onClick={() => handleLinkClick('contacto')} className="hover:text-red-400 transition-colors cursor-pointer text-left">Contacto</button></li>
           </ul>
         </div>
 
-        {/* Column 3: Contact Info */}
+        {/* Column 3: Contact Info EDITABLE */}
         <div className="flex flex-col gap-3 text-xs text-gray-300">
           <h3 className="text-sm font-display font-bold tracking-wide uppercase mb-1 border-b border-blue-800 pb-2">
             Contacto
           </h3>
           <div className="flex items-start gap-2">
             <MapPin className="w-4 h-4 text-[#FF030D] shrink-0 mt-0.5" />
-            <span>Avenida Copayapu #1230, Copiapó, Región de Atacama</span>
+            <span className="w-full">
+              <InlineEdit value={footerDir} onSave={(v) => { setFooterDir(v); saveToFirebase('direccion', v); }} isEditMode={isAdminMode} multiline />
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <Phone className="w-4 h-4 text-[#FF030D] shrink-0" />
-            <span>Central: +56 52 221 0844</span>
+            <span className="w-full">
+              <InlineEdit value={footerTel} onSave={(v) => { setFooterTel(v); saveToFirebase('telefono', v); }} isEditMode={isAdminMode} />
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <Mail className="w-4 h-4 text-[#FF030D] shrink-0" />
-            <span>contacto@escuelabernardoohiggins.cl</span>
+            <span className="w-full">
+              <InlineEdit value={footerEmail} onSave={(v) => { setFooterEmail(v); saveToFirebase('email', v); }} isEditMode={isAdminMode} />
+            </span>
           </div>
         </div>
 
@@ -153,32 +161,22 @@ export default function Footer({
 
       </div>
 
-      {/* Lower Bar: Copyright */}
+      {/* Lower Bar: Copyright y Botones funcionales */}
       <div className="max-w-[1200px] mx-auto px-4 pt-6 border-t border-blue-900 text-center text-[11px] text-gray-400 flex flex-col md:flex-row justify-between items-center gap-2 animate-fade-in">
         <p>© {currentYear} Escuela Bernardo O'Higgins de Copiapó. Todos los derechos reservados.</p>
         <div className="flex items-center gap-4">
-          <button 
-            onClick={onOpenPrivacy} 
-            className="hover:underline hover:text-white cursor-pointer transition-colors"
-          >
-            Políticas de Privacidad
-          </button>
+          <button onClick={onOpenPrivacy} className="hover:underline hover:text-white cursor-pointer transition-colors">Políticas de Privacidad</button>
           <span>•</span>
-          <button 
-            onClick={onOpenTerms} 
-            className="hover:underline hover:text-white cursor-pointer transition-colors"
-          >
-            Términos de Uso
-          </button>
-          <span>•</span>
-          <button
-            onClick={onOpenAdminLogin}
-            className="text-gray-500 hover:text-white transition-colors cursor-pointer p-1 rounded-full"
-            title="Ingreso de Administrador"
-            id="admin-lock-icon"
-          >
-            <Lock className="w-3.5 h-3.5" />
-          </button>
+          <button onClick={onOpenTerms} className="hover:underline hover:text-white cursor-pointer transition-colors">Términos de Uso</button>
+          
+          {!isAdminMode && (
+            <>
+              <span>•</span>
+              <button onClick={onOpenAdminLogin} className="text-gray-500 hover:text-white transition-colors cursor-pointer p-1 rounded-full" title="Ingreso de Administrador" id="admin-lock-icon">
+                <Lock className="w-3.5 h-3.5" />
+              </button>
+            </>
+          )}
         </div>
       </div>
     </footer>

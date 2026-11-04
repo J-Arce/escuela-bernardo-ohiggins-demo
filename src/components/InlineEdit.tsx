@@ -26,23 +26,23 @@ export default function InlineEdit({
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
 
-  // Sync state if initial value changes externally
   useEffect(() => {
     setEditValue(value);
   }, [value]);
 
   if (!isEditMode) {
-    return <span className={className}>{value}</span>;
+    // Vista Normal: Respetamos los espacios naturales sin romper palabras a la mitad
+    return <span className={`break-words ${className}`}>{value}</span>;
   }
 
   if (isEditing) {
     return (
-      <span className="inline-flex items-center gap-1.5 bg-amber-50 p-1.5 rounded-lg border border-amber-300 shadow-sm z-10">
+      <span className="inline-flex items-start gap-1.5 bg-amber-50 p-1.5 rounded-lg border border-amber-300 shadow-sm z-10 max-w-full w-full relative">
         {multiline ? (
           <textarea
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
-            className="text-xs text-gray-800 p-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white min-w-[240px] leading-relaxed"
+            className="text-xs text-gray-800 p-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white min-w-[240px] w-full max-w-full leading-relaxed"
             rows={4}
           />
         ) : (
@@ -50,10 +50,10 @@ export default function InlineEdit({
             type={type}
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
-            className="text-xs text-gray-800 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-sans"
+            className="text-xs text-gray-800 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-sans max-w-full w-full"
           />
         )}
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 shrink-0">
           <button
             onClick={() => {
               if (editValue.trim() !== "") {
@@ -82,14 +82,15 @@ export default function InlineEdit({
   }
 
   return (
-    <span className={`inline-flex items-center gap-1 group relative ${className}`}>
-      <span>{value}</span>
+    // Estructura Relativa: El lápiz ahora flota de forma absoluta para no dejarse empujar por textos extremadamente largos
+    <span className={`relative group inline-block max-w-full w-full ${className}`}>
+      <span className="break-words whitespace-pre-wrap min-w-0 inline-block w-full">{value}</span>
       <button
         onClick={(e) => {
           e.stopPropagation();
           setIsEditing(true);
         }}
-        className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 text-blue-700 hover:text-white hover:bg-[#FF030D] rounded-full transition-all cursor-pointer inline-flex items-center justify-center border border-gray-100 bg-white shadow-xs"
+        className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 focus:opacity-100 p-1.5 text-white bg-[#05087E] hover:bg-[#FF030D] rounded-bl-xl rounded-tr-sm transition-all cursor-pointer shadow-md z-[100]"
         title="Editar este dato directamente"
       >
         <Pencil className="w-3 h-3" />

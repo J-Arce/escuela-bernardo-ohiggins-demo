@@ -3,7 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../firebase'; // <-- Importamos la conexión a la base de datos
 import { 
   GraduationCap, Calendar, Compass, ShieldCheck, Heart, Award, 
   Activity, BookOpen, Clock, BarChart4, CheckCircle2 
@@ -23,7 +25,10 @@ export default function AreaAcademica({
 }: AreaAcademicaProps) {
   const [activeLevel, setActiveLevel] = useState<'parvulo' | 'basica'>('parvulo');
 
-  const levelsInfo = {
+  // Estados locales (Servirán como valores por defecto si Firebase está vacío)
+  const [headerDesc, setHeaderDesc] = useState('Ofrecemos un currículum dinámico, innovador e inclusivo bajo los estándares oficiales del Ministerio de Educación de Chile.');
+
+  const [levelsInfo, setLevelsInfo] = useState({
     parvulo: {
       titulo: 'Educación Parvularia (Pre-Kinder y Kinder)',
       desc: 'Formación inicial enfocada en el desarrollo psicosocial, motricidad fina/gruesa, pensamiento lúdico y socialización de niños de 4 a 5 años de edad.',
@@ -50,15 +55,102 @@ export default function AreaAcademica({
         'Inglés desde 1° básico (anticipando el currículum regular).'
       ]
     }
+  });
+
+  const [planesEstudio, setPlanesEstudio] = useState([
+    { title: 'Enfoque Cognitivo-Constructivista', text: 'Nuestra metodología fomenta que el estudiante sea el protagonista de su aprendizaje, descubriendo el conocimiento a través del análisis, experimentos prácticos y debates.' },
+    { title: 'Tecnología y Sala de Enlaces', text: 'Acceso semanal a computación interactiva. Enseña alfabetización digital y seguridad en internet.' },
+    { title: 'Biblioteca Escolar CRA', text: 'Centro de Recursos para el Aprendizaje provisto de catálogos impresos y digitales, fomentando planes semanales de lectura domiciliaria guiada.' }
+  ]);
+
+  const [pieInfo, setPieInfo] = useState({
+    title: 'Apoyo Psicopedagógico y Multidisciplinario',
+    desc: "La Escuela Bernardo O'Higgins se compromete con la inclusión efectiva. Nuestro equipo de profesionales PIE incluye educadores diferenciales, psicólogo, fonoaudiólogo y terapeuta ocupacional. Diseñamos planes de adecuación curricular específicos para estudiantes con necesidades educativas especiales (tanto de carácter permanente como transitorio), asegurando que ningún alumno se quede atrás."
+  });
+
+  // --- CARGAR DATOS DESDE FIREBASE ---
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const docRef = doc(db, "paginas", "areaAcademica");
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.headerDesc) setHeaderDesc(data.headerDesc);
+          if (data.levelsInfo) setLevelsInfo(data.levelsInfo);
+          if (data.planesEstudio) setPlanesEstudio(data.planesEstudio);
+          if (data.pieInfo) setPieInfo(data.pieInfo);
+        }
+      } catch (error) {
+        console.error("Error al cargar datos del Área Académica:", error);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // --- GUARDAR DATOS EN FIREBASE ---
+  const saveToFirebase = async (campo: string, valor: any) => {
+    try {
+      // Usamos merge: true para no borrar las "evaluaciones" (SIMCE) que se guardan desde App.tsx
+      await setDoc(doc(db, "paginas", "areaAcademica"), { [campo]: valor }, { merge: true });
+    } catch (error) {
+      console.error("Error guardando en Firebase:", error);
+    }
   };
 
   const currentLevel = levelsInfo[activeLevel];
 
-  const planesEstudio = [
-    { title: 'Enfoque Cognitivo-Constructivista', text: 'Nuestra metodología fomenta que el estudiante sea el protagonista de su aprendizaje, descubriendo el conocimiento a través del análisis, experimentos prácticos y debates.' },
-    { title: 'Tecnología y Sala de Enlaces', text: 'Acceso semanal a computación interactiva. Enseña alfabetización digital y seguridad en internet.' },
-    { title: 'Biblioteca Escolar CRA', text: 'Centro de Recursos para el Aprendizaje provisto de catálogos impresos y digitales, fomentando planes semanales de lectura domiciliaria guiada.' }
-  ];
+  // Funciones de actualización de estado y Firebase
+  const handleUpdateHeaderDesc = (val: string) => {
+    setHeaderDesc(val);
+    saveToFirebase('headerDesc', val);
+  };
+
+  const handleUpdateLevelField = (field: string, value: string) => {
+    setLevelsInfo(prev => {
+      const updated = {
+        ...prev,
+        [activeLevel]: {
+          ...prev[activeLevel],
+          [field]: value
+        }
+      };
+      saveToFirebase('levelsInfo', updated);
+      return updated;
+    });
+  };
+
+  const handleUpdateLevelPoint = (index: number, value: string) => {
+    setLevelsInfo(prev => {
+      const newPuntos = [...prev[activeLevel].puntos];
+      newPuntos[index] = value;
+      const updated = {
+        ...prev,
+        [activeLevel]: {
+          ...prev[activeLevel],
+          puntos: newPuntos
+        }
+      };
+      saveToFirebase('levelsInfo', updated);
+      return updated;
+    });
+  };
+
+  const handleUpdatePlan = (index: number, field: 'title' | 'text', value: string) => {
+    const newPlanes = [...planesEstudio];
+    newPlanes[index] = { ...newPlanes[index], [field]: value };
+    setPlanesEstudio(newPlanes);
+    saveToFirebase('planesEstudio', newPlanes);
+  };
+
+  const handleUpdatePie = (field: 'title' | 'desc', value: string) => {
+    setPieInfo(prev => {
+      const updated = { ...prev, [field]: value };
+      saveToFirebase('pieInfo', updated);
+      return updated;
+    });
+  };
 
   return (
     <div className="space-y-16 max-w-[1200px] mx-auto px-4" id="academic-view">
@@ -69,9 +161,15 @@ export default function AreaAcademica({
         <h2 className="text-3xl md:text-4xl font-display font-bold text-[#05087E] mt-1">
           Área Académica
         </h2>
-        <p className="text-sm text-gray-500 mt-2 max-w-[600px] mx-auto">
-          Ofrecemos un currículum dinámico, innovador e inclusivo bajo los estándares oficiales del Ministerio de Educación de Chile.
-        </p>
+        <div className="text-sm text-gray-500 mt-2 max-w-[600px] mx-auto">
+          <InlineEdit 
+            value={headerDesc}
+            onSave={handleUpdateHeaderDesc}
+            isEditMode={isAdminMode}
+            multiline={true}
+            className="text-sm text-gray-500 text-center"
+          />
+        </div>
         <div className="w-16 h-1.5 bg-[#FF030D] mx-auto mt-4 rounded-full" />
       </div>
 
@@ -107,25 +205,53 @@ export default function AreaAcademica({
         {/* Level Details Render */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center" id="level-details-display">
           <div className="space-y-5">
-            <h3 className="text-xl font-display font-bold text-[#05087E]">
-              {currentLevel.titulo}
-            </h3>
-            <p className="text-xs text-gray-600 leading-relaxed font-sans text-justify">
-              {currentLevel.desc}
-            </p>
+            <div className="text-xl font-display font-bold text-[#05087E]">
+              <InlineEdit 
+                value={currentLevel.titulo}
+                onSave={(val) => handleUpdateLevelField('titulo', val)}
+                isEditMode={isAdminMode}
+                className="inline-block"
+              />
+            </div>
+            <div className="text-xs text-gray-600 leading-relaxed font-sans text-justify">
+              <InlineEdit 
+                value={currentLevel.desc}
+                onSave={(val) => handleUpdateLevelField('desc', val)}
+                isEditMode={isAdminMode}
+                multiline={true}
+              />
+            </div>
 
             <div className="space-y-2 text-xs">
               <div className="flex gap-2">
                 <span className="font-bold text-[#05087E] shrink-0">Rango Edades:</span>
-                <span className="text-gray-600">{currentLevel.edades}</span>
+                <span className="text-gray-600">
+                  <InlineEdit 
+                    value={currentLevel.edades}
+                    onSave={(val) => handleUpdateLevelField('edades', val)}
+                    isEditMode={isAdminMode}
+                  />
+                </span>
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-[#05087E] shrink-0">Tipo de Jornada:</span>
-                <span className="text-gray-600">{currentLevel.jornada}</span>
+                <span className="text-gray-600 flex-1">
+                  <InlineEdit 
+                    value={currentLevel.jornada}
+                    onSave={(val) => handleUpdateLevelField('jornada', val)}
+                    isEditMode={isAdminMode}
+                  />
+                </span>
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-[#05087E] shrink-0">Foco Educativo:</span>
-                <span className="text-gray-600">{currentLevel.foco}</span>
+                <span className="text-gray-600 flex-1">
+                  <InlineEdit 
+                    value={currentLevel.foco}
+                    onSave={(val) => handleUpdateLevelField('foco', val)}
+                    isEditMode={isAdminMode}
+                  />
+                </span>
               </div>
             </div>
           </div>
@@ -138,7 +264,14 @@ export default function AreaAcademica({
               {currentLevel.puntos.map((point, index) => (
                 <li key={index} className="flex items-start gap-2 text-gray-700">
                   <CheckCircle2 className="w-4 h-4 text-[#FF030D] shrink-0 mt-0.5" />
-                  <span>{point}</span>
+                  <span className="flex-1">
+                    <InlineEdit 
+                      value={point}
+                      onSave={(val) => handleUpdateLevelPoint(index, val)}
+                      isEditMode={isAdminMode}
+                      multiline={true}
+                    />
+                  </span>
                 </li>
               ))}
             </ul>
@@ -158,8 +291,21 @@ export default function AreaAcademica({
                 <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center text-[#FF030D]">
                   <BookOpen className="w-5 h-5 text-[#FF030D]" />
                 </div>
-                <h4 className="text-sm font-display font-bold text-[#05087E]">{item.title}</h4>
-                <p className="text-xs text-gray-600 leading-relaxed font-sans text-justify">{item.text}</p>
+                <div className="text-sm font-display font-bold text-[#05087E]">
+                  <InlineEdit 
+                    value={item.title}
+                    onSave={(val) => handleUpdatePlan(index, 'title', val)}
+                    isEditMode={isAdminMode}
+                  />
+                </div>
+                <div className="text-xs text-gray-600 leading-relaxed font-sans text-justify">
+                  <InlineEdit 
+                    value={item.text}
+                    onSave={(val) => handleUpdatePlan(index, 'text', val)}
+                    isEditMode={isAdminMode}
+                    multiline={true}
+                  />
+                </div>
               </div>
             </div>
           ))}
@@ -208,16 +354,25 @@ export default function AreaAcademica({
         <div className="w-14 h-14 bg-white text-emerald-600 rounded-full flex items-center justify-center shrink-0 shadow-sm border border-emerald-100">
           <Heart className="w-7 h-7 text-emerald-600" />
         </div>
-        <div className="space-y-2">
+        <div className="space-y-2 flex-1">
           <span className="bg-emerald-600 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase w-fit inline-block">
             Programa de Integración Escolar (PIE)
           </span>
-          <h3 className="text-lg font-display font-bold text-emerald-950">
-            Apoyo Psicopedagógico y Multidisciplinario
-          </h3>
-          <p className="text-xs text-emerald-800 leading-relaxed font-sans">
-            La Escuela Bernardo O'Higgins se compromete con la inclusión efectiva. Nuestro equipo de profesionales PIE incluye educadores diferenciales, psicólogo, fonoaudiólogo y terapeuta ocupacional. Diseñamos planes de adecuación curricular específicos para estudiantes con necesidades educativas especiales (tanto de carácter permanente como transitorio), asegurando que ningún alumno se quede atrás.
-          </p>
+          <div className="text-lg font-display font-bold text-emerald-950 block">
+            <InlineEdit 
+              value={pieInfo.title}
+              onSave={(val) => handleUpdatePie('title', val)}
+              isEditMode={isAdminMode}
+            />
+          </div>
+          <div className="text-xs text-emerald-800 leading-relaxed font-sans text-justify">
+            <InlineEdit 
+              value={pieInfo.desc}
+              onSave={(val) => handleUpdatePie('desc', val)}
+              isEditMode={isAdminMode}
+              multiline={true}
+            />
+          </div>
         </div>
       </section>
 
